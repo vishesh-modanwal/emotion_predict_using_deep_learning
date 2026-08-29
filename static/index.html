@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="AI-powered emotion detection using a Bidirectional GRU neural network."
+    >
+
+    <title>EmotiSense — AI Emotion Intelligence</title>
+
+    <link
+        rel="stylesheet"
+        href="/static/style.css"
+    >
+</head>
+
+<body>
+
+    <!-- =====================================================
+         BACKGROUND
+    ====================================================== -->
+
+    <div class="background">
+        <div class="ambient ambient-one"></div>
+        <div class="ambient ambient-two"></div>
+        <div class="ambient ambient-three"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+
+    <!-- =====================================================
+         NAVBAR
+    ====================================================== -->
+
+    <header class="navbar">
+
+        <div class="nav-inner">
+
+            <a href="/" class="brand">
+
+                <div class="brand-mark">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+
+                <div class="brand-text">
+                    <strong>EmotiSense</strong>
+                    <small>Emotion Intelligence</small>
+                </div>
+
+            </a>
+
+
+            <div class="nav-status">
+
+                <span class="status-dot"></span>
+
+                <span id="systemStatus">
+                    AI System Online
+                </span>
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="main-container">
+
+
+        <!-- =================================================
+             HERO
+        ================================================== -->
+
+        <section class="hero">
+
+            <div class="eyebrow">
+                <span class="eyebrow-line"></span>
+                <span>DEEP LEARNING • NLP</span>
+                <span class="eyebrow-line"></span>
+            </div>
+
+
+            <h1>
+                Understand the
+                <span class="gradient-text">
+                    emotion
+                </span>
+                behind the words.
+            </h1>
+
+
+            <p class="hero-description">
+                EmotiSense uses a Bidirectional GRU neural network
+                to analyze written language and identify the emotional
+                signal hidden inside it.
+            </p>
+
+
+            <div class="hero-pills">
+
+                <span>
+                    <span class="pill-icon">◉</span>
+                    BiGRU Neural Network
+                </span>
+
+                <span>
+                    <span class="pill-icon">↯</span>
+                    Real-time Analysis
+                </span>
+
+                <span>
+                    <span class="pill-icon">⌁</span>
+                    6 Emotion Classes
+                </span>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             ANALYZER
+        ================================================== -->
+
+        <section class="workspace">
+
+
+            <!-- =============================================
+                 INPUT CARD
+            ============================================== -->
+
+            <div class="card analyzer-card">
+
+                <div class="card-header">
+
+                    <div>
+                        <div class="section-label">
+                            INPUT
+                        </div>
+
+                        <h2>
+                            Tell me how you feel
+                        </h2>
+                    </div>
+
+                    <div class="counter">
+                        <span id="charCount">0</span>/2000
+                    </div>
+
+                </div>
+
+
+                <div class="textarea-wrapper">
+
+                    <textarea
+                        id="emotionInput"
+                        maxlength="2000"
+                        placeholder="Write something that expresses how you're feeling..."
+                        spellcheck="true"
+                    ></textarea>
+
+
+                    <div class="textarea-bottom">
+
+                        <span class="input-hint">
+                            <kbd>Ctrl</kbd>
+                            <span>+</span>
+                            <kbd>Enter</kbd>
+                            Analyze
+                        </span>
+
+                        <button
+                            class="clear-button"
+                            id="clearButton"
+                            type="button"
+                        >
+                            Clear
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Examples -->
+
+                <div class="examples">
+
+                    <span class="examples-label">
+                        Try an example
+                    </span>
+
+                    <button
+                        class="example-chip"
+                        data-text="Today was amazing. I finally achieved something I have been working towards for months!"
+                    >
+                        ✦ Achievement
+                    </button>
+
+                    <button
+                        class="example-chip"
+                        data-text="I can't stop worrying about what might happen tomorrow."
+                    >
+                        ◌ Anxiety
+                    </button>
+
+                    <button
+                        class="example-chip"
+                        data-text="I miss the people I used to spend every day with."
+                    >
+                        ♡ Missing someone
+                    </button>
+
+                    <button
+                        class="example-chip"
+                        data-text="Why would someone do something like that? This makes me incredibly angry."
+                    >
+                        ! Frustration
+                    </button>
+
+                </div>
+
+
+                <!-- Analyze button -->
+
+                <button
+                    class="analyze-button"
+                    id="analyzeButton"
+                    type="button"
+                >
+
+                    <span class="button-content">
+
+                        <span class="button-icon">
+                            ✦
+                        </span>
+
+                        <span>
+                            Analyze Emotion
+                        </span>
+
+                        <span class="button-arrow">
+                            →
+                        </span>
+
+                    </span>
+
+
+                    <span
+                        class="button-loader"
+                        id="buttonLoader"
+                    ></span>
+
+                </button>
+
+            </div>
+
+
+            <!-- =============================================
+                 RESULT CARD
+            ============================================== -->
+
+            <div
+                class="card result-card"
+                id="resultCard"
+            >
+
+                <!-- Empty state -->
+
+                <div
+                    class="result-empty"
+                    id="emptyState"
+                >
+
+                    <div class="orb">
+
+                        <div class="orb-ring ring-one"></div>
+                        <div class="orb-ring ring-two"></div>
+
+                        <div class="orb-core">
+                            <span>✦</span>
+                        </div>
+
+                    </div>
+
+
+                    <h3>
+                        Your emotional signal
+                    </h3>
+
+                    <p>
+                        Write something on the left and let the
+                        neural network read between the lines.
+                    </p>
+
+                </div>
+
+
+                <!-- Result -->
+
+                <div
+                    class="result-content hidden"
+                    id="resultContent"
+                >
+
+                    <div class="result-top">
+
+                        <div>
+                            <div class="section-label">
+                                ANALYSIS COMPLETE
+                            </div>
+
+                            <h2>
+                                Detected emotion
+                            </h2>
+                        </div>
+
+                        <div
+                            class="confidence-badge"
+                            id="confidenceBadge"
+                        >
+                            0%
+                        </div>
+
+                    </div>
+
+
+                    <div class="emotion-display">
+
+                        <div
+                            class="emotion-orb"
+                            id="emotionOrb"
+                        >
+
+                            <span id="emotionEmoji">
+                                😊
+                            </span>
+
+                        </div>
+
+
+                        <div class="emotion-info">
+
+                            <span class="emotion-caption">
+                                The model senses
+                            </span>
+
+                            <h3 id="emotionName">
+                                Joy
+                            </h3>
+
+                            <p id="emotionDescription">
+                                A positive emotional state.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Confidence -->
+
+                    <div class="confidence-section">
+
+                        <div class="metric-header">
+
+                            <span>
+                                Model confidence
+                            </span>
+
+                            <strong id="confidenceText">
+                                0%
+                            </strong>
+
+                        </div>
+
+
+                        <div class="progress-track">
+
+                            <div
+                                class="progress-bar"
+                                id="confidenceBar"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Probability breakdown -->
+
+                    <div class="probability-section">
+
+                        <div class="metric-title">
+                            Emotion probability
+                        </div>
+
+                        <div
+                            class="probability-list"
+                            id="probabilityList"
+                        ></div>
+
+                    </div>
+
+
+                    <!-- Analyze another -->
+
+                    <button
+                        class="secondary-button"
+                        id="newAnalysisButton"
+                        type="button"
+                    >
+                        <span>↻</span>
+                        Analyze another
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             MODEL INFO
+        ================================================== -->
+
+        <section class="model-strip">
+
+            <div class="model-item">
+
+                <span class="model-icon">
+                    ◎
+                </span>
+
+                <div>
+                    <small>Architecture</small>
+                    <strong>Bidirectional GRU</strong>
+                </div>
+
+            </div>
+
+
+            <div class="model-divider"></div>
+
+
+            <div class="model-item">
+
+                <span class="model-icon">
+                    ◇
+                </span>
+
+                <div>
+                    <small>Processing</small>
+                    <strong>Natural Language</strong>
+                </div>
+
+            </div>
+
+
+            <div class="model-divider"></div>
+
+
+            <div class="model-item">
+
+                <span class="model-icon">
+                    ◈
+                </span>
+
+                <div>
+                    <small>Output</small>
+                    <strong>6 Emotions</strong>
+                </div>
+
+            </div>
+
+
+            <div class="model-divider"></div>
+
+
+            <div class="model-item">
+
+                <span class="model-icon">
+                    ✓
+                </span>
+
+                <div>
+                    <small>Status</small>
+                    <strong id="modelStatus">
+                        Checking...
+                    </strong>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             FOOTER
+        ================================================== -->
+
+        <footer>
+
+            <span>
+                EmotiSense
+            </span>
+
+            <span class="footer-dot">•</span>
+
+            <span>
+                Powered by Deep Learning
+            </span>
+
+            <span class="footer-dot">•</span>
+
+            <span>
+                BiGRU + NLP
+            </span>
+
+        </footer>
+
+    </main>
+
+
+    <!-- =====================================================
+         TOAST
+    ====================================================== -->
+
+    <div
+        class="toast"
+        id="toast"
+    >
+        <span id="toastIcon">!</span>
+        <span id="toastMessage">
+            Something went wrong.
+        </span>
+    </div>
+
+
+    <script src="/static/script.js"></script>
+
+</body>
+
+</html>
