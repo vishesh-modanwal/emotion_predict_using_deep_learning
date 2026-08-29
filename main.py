@@ -34,13 +34,13 @@ MAX_SEQUENCE_LENGTH = 50
 # The order must exactly match the order used during training.
 # ============================================================
 
-EMOTION_LABELS = [
+EMOTION_NAMES = [
     "sadness",
     "joy",
     "love",
     "fear",
     "surprise",
-    "anger"
+    "anger",
 ]
 
 EMOTION_EMOJIS = {
@@ -49,8 +49,19 @@ EMOTION_EMOJIS = {
     "love": "💕",
     "fear": "😥",
     "surprise": "😎",
-    "anger": "😡"
+    "anger": "😡",
 }
+
+
+# ============================================================
+# MODEL STORAGE
+# ============================================================
+
+dl_model = {
+    "BIGRU": None,
+    "tokenizer": None,
+}
+
 
 '''
 preprocess the text
@@ -63,34 +74,30 @@ clean raw text so it matches the format used while training.
 
 '''
 
+# ============================================================
+# TEXT PREPROCESSING
+# ============================================================
+
 def preprocess_text(text: str) -> str:
     """
-    Clean raw text so it matches the format used during training.
+    Clean the input text in the same way as during training.
 
     Steps:
-    1. Convert text to lowercase
-    2. Remove apostrophes
-    3. Remove special characters and punctuation
-    4. Remove extra spaces
+    1. Convert to lowercase
+    2. Remove special characters
+    3. Remove extra spaces
     """
 
-    # Convert to lowercase
     text = text.lower()
 
-    # Remove apostrophes
-    # Example:
-    # can't -> cant
-    # don't -> dont
-    text = re.sub(r"'", "", text)
-
-    # Remove special characters and punctuation
-    # Keep only letters, numbers and whitespace
+    # Keep only letters, numbers and spaces
     text = re.sub(r"[^a-z0-9\s]", " ", text)
 
     # Remove extra spaces
     text = re.sub(r"\s+", " ", text).strip()
 
     return text
+
 
 
 '''
@@ -102,6 +109,10 @@ Request and response schemas
 '''
 
 
+# ============================================================
+# PYDANTIC SCHEMAS
+# ============================================================
+
 class TextInput(BaseModel):
     text: str = Field(
         ...,
@@ -110,7 +121,7 @@ class TextInput(BaseModel):
         description="The sentence to recognize",
         json_schema_extra={
             "example": "I feel so happy and excited"
-        }
+        },
     )
 
     
@@ -125,30 +136,31 @@ class PredictionResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
+
     
  
-# ============================================================
-# MODEL STORAGE
-# ============================================================
-
-dl_model = {}
+ 
 
 # ============================================================
 # LIFESPAN - LOAD MODEL AND TOKENIZER
 # ============================================================
+# ============================================================
+# LIFESPAN - LOAD MODEL WHEN SERVER STARTS
+# ============================================================
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
     print("=" * 60)
-    print("Loading model and tokenizer...")
+    print("Loading Emotion Detection Model...")
     print("=" * 60)
 
     try:
 
-        # Load GRU model
+        # Load trained BiGRU model
         dl_model["BIGRU"] = load_model(MODEL_PATH)
 
-        print("✓ GRU model loaded successfully")
+        print("✓ BiGRU model loaded successfully")
 
         # Load tokenizer
         with open(TOKENIZER_PATH, "rb") as file:
@@ -165,27 +177,19 @@ async def lifespan(app: FastAPI):
         print("=" * 60)
         print("ERROR WHILE LOADING MODEL")
         print("=" * 60)
-
         print(str(e))
 
-        dl_model.clear()
+        # Keep server running so /health can report the problem
+        dl_model["BIGRU"] = None
+        dl_model["tokenizer"] = None
 
     yield
 
-    # Cleanup when application shuts down
-    dl_model.clear()
+    # Cleanup
+    dl_model["BIGRU"] = None
+    dl_model["tokenizer"] = None
 
-    print("Model resources cleared.")
-    
-    
-    
-    
-'''
-Mount the static files to the fastapi app
-enable cors (cross origin resource sharing ) to allow request from different origins.
-'''
-
-
+    print("Model resources released.")
 
 
 # ============================================================
@@ -194,9 +198,9 @@ enable cors (cross origin resource sharing ) to allow request from different ori
 
 app = FastAPI(
     title="Emotion Detection API",
-    description="Emotion detection using a trained GRU deep learning model",
+    description="Deep Learning based emotion detection using BiGRU",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
@@ -207,46 +211,39 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
 
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000"
-    ],
+    # For development and deployment with same server
+    allow_origins=["*"],
 
-    allow_credentials=True,
+    allow_credentials=False,
 
     allow_methods=["*"],
 
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
+
 # ============================================================
-# STATIC FILES
+# STATIC FRONTEND
 # ============================================================
 
 app.mount(
     "/static",
     StaticFiles(directory="static"),
-    name="static"
+    name="static",
 )
 
-
-"""
-API Endpoint    
-1. server ui at homepage ('/')
-2. health check endpoint ('/health')
-3. predict emotion endpoint ('/predict')
-"""
 
 # ============================================================
 # HOME PAGE
 # ============================================================
 
 @app.get("/", include_in_schema=False)
-def server_ui():
+async def server_ui():
 
     return FileResponse(
         "static/index.html"
     )
+
 
 # ============================================================
 # HEALTH CHECK
@@ -256,7 +253,7 @@ def server_ui():
     "/health",
     response_model=HealthResponse
 )
-def health_check():
+async def health_check():
 
     model_loaded = (
         dl_model.get("BIGRU") is not None
@@ -265,142 +262,132 @@ def health_check():
 
     return HealthResponse(
         status="Server is Running",
-        model_loaded=model_loaded
+        model_loaded=model_loaded,
     )
 
 
 # ============================================================
-# PREDICT EMOTION
+# EMOTION PREDICTION
 # ============================================================
 
 @app.post(
     "/predict",
     response_model=PredictionResponse
 )
-def predict_emotion(text_input: TextInput):
+async def predict_emotion(
+    text_input: TextInput
+):
 
+    # --------------------------------------------------------
     # Get model and tokenizer
+    # --------------------------------------------------------
+
     bigru_model = dl_model.get("BIGRU")
     tokenizer_model = dl_model.get("tokenizer")
 
-    # Check model availability
     if bigru_model is None or tokenizer_model is None:
 
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Model or tokenizer is not loaded. "
-                "Please check the model loader."
-            )
+            detail="Model is not loaded. Please check the model files and server logs.",
         )
 
     # --------------------------------------------------------
-    # Preprocess input text
+    # Clean input
     # --------------------------------------------------------
 
     clean_text = preprocess_text(
         text_input.text
     )
 
-    # Check whether text is empty after preprocessing
     if not clean_text:
 
         raise HTTPException(
             status_code=400,
-            detail=(
-                "The provided text contains no valid "
-                "characters after preprocessing."
-            )
+            detail="Please enter meaningful text.",
         )
 
     # --------------------------------------------------------
-    # Convert text into numerical sequence
+    # Convert text to sequence
     # --------------------------------------------------------
 
+    # IMPORTANT:
+    # text_to_sequences expects a LIST of texts.
     tokenized_text = tokenizer_model.texts_to_sequences(
         [clean_text]
     )
 
     # --------------------------------------------------------
-    # Pad sequence
+    # Padding
     # --------------------------------------------------------
 
     padded_sequence = pad_sequences(
         tokenized_text,
         maxlen=MAX_SEQUENCE_LENGTH,
         padding="post",
-        truncating="post"
+        truncating="post",
     )
 
     # --------------------------------------------------------
     # Model prediction
     # --------------------------------------------------------
 
-    prediction = bigru_model.predict(
+    probability = bigru_model.predict(
         padded_sequence,
-        verbose=0
-    )
-
-    # Get first prediction
-    probability = prediction[0]
+        verbose=0,
+    )[0]
 
     # --------------------------------------------------------
-    # Validate model output
+    # Safety check
     # --------------------------------------------------------
 
-    if len(probability) != len(EMOTION_LABELS):
+    if len(probability) != len(EMOTION_NAMES):
 
         raise HTTPException(
             status_code=500,
             detail=(
                 f"Model returned {len(probability)} classes, "
-                f"but {len(EMOTION_LABELS)} emotion labels "
-                f"are configured."
-            )
+                f"but {len(EMOTION_NAMES)} emotion labels are configured."
+            ),
         )
 
     # --------------------------------------------------------
-    # Find highest probability emotion
+    # Find top emotion
     # --------------------------------------------------------
 
-    top_index = int(
+    top_emotion_index = int(
         np.argmax(probability)
     )
 
-    top_label = EMOTION_LABELS[top_index]
-
-    confidence = float(
-        probability[top_index]
-    )
+    top_emotion = EMOTION_NAMES[
+        top_emotion_index
+    ]
 
     # --------------------------------------------------------
-    # Create probability dictionary
+    # All probabilities
     # --------------------------------------------------------
 
     all_probability = {
-        label: float(prob)
-        for label, prob in zip(
-            EMOTION_LABELS,
+        emotion: float(prob)
+        for emotion, prob in zip(
+            EMOTION_NAMES,
             probability
         )
     }
 
     # --------------------------------------------------------
-    # Add emoji
-    # --------------------------------------------------------
-
-    predicted_emotion = (
-        f"{top_label} "
-        f"{EMOTION_EMOJIS.get(top_label, '')}"
-    )
-
-    # --------------------------------------------------------
-    # Return response
+    # Response
     # --------------------------------------------------------
 
     return PredictionResponse(
+
         text=text_input.text,
-        predicted_emotion=predicted_emotion,
-        confidence=confidence,
-        all_probability=all_probability
+
+        predicted_emotion=top_emotion,
+
+        confidence=float(
+            probability[top_emotion_index]
+        ),
+
+        all_probability=all_probability,
     )
