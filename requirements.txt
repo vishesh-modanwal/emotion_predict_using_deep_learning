@@ -1,6 +1,8 @@
+ 
+
 fastapi
 uvicorn[standard]
 pydantic
-tensorflow
-keras
+tensorflow==2.21.0
+keras==3.15.0
 numpy
